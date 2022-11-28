@@ -277,7 +277,7 @@ class JUnitFormatter implements Formatter
                 );
                 $path = implode(DIRECTORY_SEPARATOR, array_slice($pathParts, 1, count($pathParts)-2));
                 $directory = sprintf('screenshots/%s/%s', $event->getSuite()->getName(), $path);
-                $filename = sprintf('%s/%s-%s.png', $directory, end($pathParts), $event->getScenario()->getLine());
+                $filename = sprintf('%s/%s-%s.png', $directory, end($pathParts), $event->getStep()->getLine());
 
                 $systemOutNode = $this->currentTestcase->addChild('system-out');
                 $systemOutNode[0] = '[[ATTACHMENT|' . $filename . ']]';
