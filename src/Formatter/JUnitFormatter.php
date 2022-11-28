@@ -21,7 +21,7 @@ use jarnaiz\JUnitFormatter\Printer\FileOutputPrinter;
  */
 class JUnitFormatter implements Formatter
 {
-    const FORMATTER_NAME = 'junit';
+    const FORMATTER_NAME = 'gitlab-junit';
 
     /**
      * printer
@@ -251,6 +251,9 @@ class JUnitFormatter implements Formatter
                 $node = dom_import_simplexml($failureNode);
                 $no = $node->ownerDocument;
                 $node->appendChild($no->createCDATASection($failureText));
+
+                $systemOutNode = $this->currentTestcase->addChild('system-out');
+                $systemOutNode[0] = '[[ATTACHMENT|/path/to/some/file]]';
 
                 $failureNode->addAttribute('type', \get_class($event->getTestResult()->getException()));
             }
