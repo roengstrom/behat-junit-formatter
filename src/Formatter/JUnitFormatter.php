@@ -2,6 +2,7 @@
 
 namespace jarnaiz\JUnitFormatter\Formatter;
 
+use Behat\Behat\EventDispatcher\Event\AfterStepTested;
 use Behat\Behat\Tester\Result\StepResult as TestResult;
 use Behat\Behat\EventDispatcher\Event\FeatureTested;
 use Behat\Behat\EventDispatcher\Event\ScenarioTested;
@@ -203,6 +204,12 @@ class JUnitFormatter implements Formatter
         $this->currentTestcase = $this->currentTestsuite->addChild('testcase');
         $this->currentTestcase->addAttribute('name', $event->getScenario()->getTitle());
 
+        $cwd = realpath(getcwd());
+        $file = $event->getFeature()->getFile();
+        $file = substr($file, 0, strlen($cwd)) === $cwd ? ltrim(substr($file, strlen($cwd)), DIRECTORY_SEPARATOR) : $file;
+        $line = $event->getScenario()->getLine();
+        $this->currentTestcase->addAttribute('file', $file . ':' . $line);
+
         $this->testcaseTimer->start();
     }
 
@@ -230,6 +237,12 @@ class JUnitFormatter implements Formatter
         $this->currentTestcase = $this->currentTestsuite->addChild('testcase');
         $this->currentTestcase->addAttribute('name', $this->currentOutlineTitle . ' Line #' . $event->getScenario()->getLine());
 
+        $cwd = realpath(getcwd());
+        $file = $event->getFeature()->getFile();
+        $file = substr($file, 0, strlen($cwd)) === $cwd ? ltrim(substr($file, strlen($cwd)), DIRECTORY_SEPARATOR) : $file;
+        $line = $event->getScenario()->getLine();
+        $this->currentTestcase->addAttribute('file', $file . ':' . $line);
+
         $this->testcaseTimer->start();
     }
 
@@ -238,22 +251,36 @@ class JUnitFormatter implements Formatter
      *
      * @param mixed $event
      */
-    public function afterStep($event)
+    public function afterStep(AfterStepTested $event)
     {
         $code = $event->getTestResult()->getResultCode();
         if(TestResult::FAILED === $code) {
             if ($event->getTestResult()->hasException()) {
                 $failureNode = $this->currentTestcase->addChild('failure');
 
-                $failureText = $event->getStep()->getKeyword() . " " . $event->getStep()->getText() . ":\n\n" . $event->getTestResult()->getException()->getMessage();
+                $failureText = sprintf(
+                    "%s %s:\n\n%s",
+                    $event->getStep()->getKeyword(),
+                    $event->getStep()->getText(),
+                    $event->getTestResult()->getException()->getMessage()
+                );
 
                 // add cdata
                 $node = dom_import_simplexml($failureNode);
                 $no = $node->ownerDocument;
                 $node->appendChild($no->createCDATASection($failureText));
 
+                // Link screenshot
+                $pathParts = explode(
+                    DIRECTORY_SEPARATOR,
+                    ltrim(substr($event->getFeature()->getFile(), strlen(getcwd())), DIRECTORY_SEPARATOR)
+                );
+                $path = implode(DIRECTORY_SEPARATOR, array_slice($pathParts, 1, count($pathParts)-2));
+                $directory = sprintf('screenshots/%s/%s', $event->getSuite()->getName(), $path);
+                $filename = sprintf('%s/%s-%s.png', $directory, end($pathParts), $event->getScenario()->getLine());
+
                 $systemOutNode = $this->currentTestcase->addChild('system-out');
-                $systemOutNode[0] = '[[ATTACHMENT|/path/to/some/file]]';
+                $systemOutNode[0] = '[[ATTACHMENT|' . $filename . ']]';
 
                 $failureNode->addAttribute('type', \get_class($event->getTestResult()->getException()));
             }
